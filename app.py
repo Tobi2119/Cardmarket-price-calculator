@@ -1,3 +1,4 @@
+from threading import Thread
 import web_request as web
 from bs4 import BeautifulSoup
 import urllib.parse
@@ -26,3 +27,31 @@ def GetSearchCardURLs(name):
     for page in range(1, pages+1):
         card_search_urls.append(f"https://www.cardmarket.com/de/YuGiOh/Products/Search?searchString={urllib.parse.quote(name)}&site={page}")
     return card_search_urls
+
+def GetCardlistFromSearchURL(URL, cardlist):
+    search_request = web.Get_Webpage(URL)
+    search_page = BeautifulSoup(search_request, "html.parser")
+    # Receive the table with the found cards
+    cards_table = search_page.find(class_ = "table-body")
+    # Get all rows of the table (direct childs of the table)
+    rows = cards_table.find_all(recursive=False)
+    # Get all information of cards from all rows
+    for row in rows:
+        card = {}
+        card["package"] = row.find(class_ = "col-icon small").find(text=True)
+        card["name"] = row.find(class_ = "col-12 col-md-8 px-2 flex-column").find(text=True)
+        card["url"] = f"https://www.cardmarket.com/{row.find(class_ = 'col-12 col-md-8 px-2 flex-column').find('a')['href']}"
+        card["rarity"] = row.find(class_ = "col-12 col-md-auto col-rarity d-none d-md-flex px-2").find("span").find("span")["data-original-title"]
+        cardlist.append(card)
+
+def GetCardlistFromSearchURLs(URLs, cardlist):
+    threads = []
+    # create a thread for each url
+    for URL in URLs:
+        threads.append(Thread(target=GetCardlistFromSearchURL, args=(URL, cardlist)))
+    # start all threads
+    for process in threads:
+        process.start()
+    # wait until all threads a finish
+    for process in threads:
+        process.join()
